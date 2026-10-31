@@ -9,6 +9,8 @@ MOODS = {
     "upbeat": dict(bpm=120, root=48, prog=[(0, 4, 7), (7, 11, 14), (9, 12, 16), (5, 9, 12)], kick="beats", snare=True, hat=2, arp=True),
     "hype":   dict(bpm=128, root=45, prog=[(0, 3, 7), (8, 12, 15), (3, 7, 10), (10, 14, 17)], kick="beats", snare=True, hat=4, arp=True),
     "calm":   dict(bpm=96,  root=48, prog=[(0, 4, 7), (5, 9, 12), (9, 12, 16), (7, 11, 14)], kick="half", snare=False, hat=0, arp=True),
+    "cinematic": dict(bpm=90, root=45, prog=[(0, 3, 7), (-4, 0, 3), (-7, -3, 0), (-2, 2, 5)], kick="half", snare=False, hat=0, arp=False),
+    "lofi":   dict(bpm=84, root=50, prog=[(0, 4, 11), (-3, 0, 7), (5, 9, 16), (7, 11, 17)], kick="half", snare=True, hat=2, arp=True),
     "dark":   dict(bpm=110, root=43, prog=[(0, 3, 7), (-2, 2, 5), (-4, 0, 3), (-5, -2, 2)], kick="half", snare=True, hat=2, arp=False),
 }
 

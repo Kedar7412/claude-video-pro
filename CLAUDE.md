@@ -1,11 +1,13 @@
 # Reel pipeline rules
 
 When asked for a reel/video, follow `.claude/skills/make-reel/SKILL.md` (also available as `/reel <topic>`).
+Always go through intent → research → brief before writing a script; the brief is what makes each reel fit its topic.
 
 ## Code map
 `reel.py` (CLI, timing, encode) · `run.py` (venv launcher) · `reelkit/script.py` (parse, *emphasis*, kinds, LLM script) ·
 `voice.py` (TTS, alignment) · `music.py` (synth, track loading, beat detection, voice polish, mix) ·
 `footage.py` (Pexels/local clips, frame streaming, camera) · `kinetic.py` (footage style renderer) ·
+`looks.py` (look presets) · `musicsearch.py` (CC0/CC BY music from Wikimedia Commons) ·
 `render.py` + `figures.py` (cards style, host, props) · `checks.py` (gates)
 
 ## Render contract
@@ -21,7 +23,7 @@ When asked for a reel/video, follow `.claude/skills/make-reel/SKILL.md` (also av
 
 ## Script rules
 - Hook ≤ 8 words, said in under 2 s. One idea and ≤ 12 words per scene. One concrete number. Last scene = CTA.
-- Never invent statistics, studies, quotes or testimonials.
+- Never invent statistics, studies, quotes or testimonials. Numbers must come from the research notes (with a source) or the user.
 
 ## Never commit
 `.env` (API keys), `.cache/`, `models/`, `out/`.
