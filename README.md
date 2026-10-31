@@ -6,30 +6,29 @@ script-matched illustrations, a beat-synced synthesized soundtrack, in any aspec
 
 ## Setup
 ```
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/python reel.py --setup        # optional: pre-download Whisper (~75 MB) and the offline voice (~60 MB)
+python run.py --setup     # Windows without `python`: py run.py --setup
 ```
 ffmpeg is bundled (`imageio-ffmpeg`). The default voice (Microsoft Edge neural voices) needs internet but **no API key**.
 
 ## Use
 ```
 # your own script (blank line = new scene; first = hook, last = call to action)
-.venv/bin/python reel.py examples/en.txt --handle @you
+python run.py examples/en.txt --handle @you
 
 # every aspect ratio from one timeline
-.venv/bin/python reel.py examples/en.txt --formats 9:16,4:5,1:1,16:9
+python run.py examples/en.txt --formats 9:16,4:5,1:1,16:9
 
 # an LLM writes it (set ANTHROPIC_API_KEY or OPENAI_API_KEY; REEL_LLM_MODEL optional)
-.venv/bin/python reel.py --topic "why cold showers work" --seconds 30 --tone "playful" --mood hype
+python run.py --topic "why cold showers work" --seconds 30 --tone "playful" --mood hype
 
 # no key: you supply the points, it adds a hook formula + CTA
-.venv/bin/python reel.py --topic "cold showers" --points "They spike alertness for 30 minutes;Start with 30 seconds"
+python run.py --topic "cold showers" --points "They spike alertness for 30 minutes;Start with 30 seconds"
 
 # your own recording (Whisper aligns it) and your own face on the host
-.venv/bin/python reel.py script.txt --tts file --audio my_take.m4a --host-photo me.jpg
+python run.py script.txt --tts file --audio my_take.m4a --host-photo me.jpg
 
 # other languages
-.venv/bin/python reel.py examples/es.txt --lang es
+python run.py examples/es.txt --lang es
 ```
 Output goes to `out/` (or the folder of `-o`). With several formats the files are named `reel_9x16.mp4`, `reel_1x1.mp4`, ...
 Sample output is in `out/example/`.
@@ -52,14 +51,17 @@ Sample output is in `out/example/`.
 Hard gate failures stop the render (`--force` overrides). If Whisper can't be loaded, the run continues with estimated
 caption timing and says so. Latin/Cyrillic/Greek/Vietnamese work with the bundled font; for CJK/Arabic/Thai pass `--font`.
 
-## Use it from Claude Code
-Open this folder in [Claude Code](https://claude.com/claude-code) and type, for example:
+## Use it from Claude (desktop app or terminal)
+**Claude desktop app (Windows / Mac):** open the app, sign in, click the **Code** tab, choose this folder as the project, and type:
 ```
 /reel why cold showers work, 30 seconds, @yourname, vertical and square
 ```
+**Terminal:** run `claude` inside this folder and type the same line.
+
 Claude writes the script (no API key needed), picks the props, renders a fast draft, looks at the contact sheet, fixes problems,
-then renders the final files. The workflow lives in `.claude/skills/make-reel/SKILL.md`; house rules in `CLAUDE.md`.
-Claude Code runs the renderer on your machine, so it needs Python 3.10+. The claude.ai chat app cannot run it.
+then renders the final files. The workflow is in `.claude/skills/make-reel/SKILL.md`; house rules in `CLAUDE.md`.
+It runs on your computer and needs Python 3.10+ and Git. The first run creates `.venv` and downloads about 135 MB of models.
+The claude.ai chat tab cannot run it; use the Code tab. Windows support was added via `run.py` but has not been tested on Windows.
 
 ## Limits
 - The originality gate is heuristic: it catches generic, repetitive or already-made scripts. It cannot prove a script is novel.
