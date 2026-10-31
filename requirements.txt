@@ -1,0 +1,7 @@
+pillow
+numpy
+requests
+imageio-ffmpeg
+edge-tts
+faster-whisper
+piper-tts
