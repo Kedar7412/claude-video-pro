@@ -18,6 +18,11 @@ from reelkit.common import FFMPEG, FORMATS, FPS, SR, Scene
 from reelkit.render import PALETTES, Renderer
 
 
+for _stream in (sys.stdout, sys.stderr):   # Windows consoles default to a legacy codepage
+    try: _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception: pass
+
+
 def log(msg): print(msg, file=sys.stderr, flush=True)
 
 

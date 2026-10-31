@@ -10,8 +10,10 @@ because you write the script yourself.
 
 ## 0. One-time setup (skip if `.venv` exists)
 ```
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt && .venv/bin/python reel.py --setup
+python run.py --setup
 ```
+`run.py` creates the virtual environment and installs requirements on first use, on Windows, macOS and Linux. If `python` is
+not found on Windows, use `py run.py ...` instead (everywhere below too). It needs Python 3.10+.
 
 ## 1. Collect inputs (ask only for what is missing; offer defaults)
 Topic or finished script · handle (e.g. @name) · language · length (default 30 s) · mood (upbeat/hype/calm/dark) ·
@@ -36,7 +38,7 @@ or "" when none fits (the last scene never shows one). Choose only props that th
 
 ## 3. Draft render and review (fast)
 ```
-.venv/bin/python reel.py scripts/<slug>.txt --meta scripts/<slug>.json --handle @name --mood upbeat --blur 1 -o out/<slug>/draft.mp4
+python run.py scripts/<slug>.txt --meta scripts/<slug>.json --handle @name --mood upbeat --blur 1 -o out/<slug>/draft.mp4
 ```
 - If the gates print `✗` failures, fix the script (they say what) and re-run. Do not use `--force` unless the user asks.
 - Open `out/<slug>/contact.png` and `phone.png` and LOOK at them. Score 1-10: hook in the first 2 s, readability at phone size,
