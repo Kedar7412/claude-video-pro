@@ -33,6 +33,38 @@ PEXELS_API_KEY=your_key_here
 ffmpeg and the fonts (Anton, Montserrat; SIL Open Font License, in `assets/fonts`) are bundled. The default voice
 (Microsoft Edge neural voices) needs internet but no key.
 
+## Long videos (5 minutes to 2 hours)
+
+```
+/video the history of the Hanseatic League, 25 minutes, for curious general viewers
+```
+Claude scopes the video, gives a reality check, researches with sources, shows a chapter plan, writes the script one chapter file
+at a time (so a long script survives several sessions), fact-checks it, previews chapter 1, renders in the background and delivers
+a YouTube package. Workflow: `.claude/skills/make-video/SKILL.md`.
+
+Directly:
+```
+python run.py long examples/long/cold-water.md --meta examples/long/cold-water.json --broll-dir my_clips   # or with a Pexels key
+python run.py long project/script.md --plan-only          # parse, estimate duration and rough render time
+python run.py long project/script.md --detach -o out/x    # background run; python run.py long --status out/x
+python run.py long --assemble projects/my-video           # join chapters/*.md and show a progress table
+```
+Script format (`> broll`, `> images`, `> source`, `> shot`, `> fact`) is documented in `reelkit/longscript.py`.
+
+| | |
+|---|---|
+| Speed | ffmpeg composes each shot (camera move, grade, burned-in captions) and shots render in parallel: about 2x realtime on an 8-core machine at 1080p (a 10-minute video took 5 minutes; a 2-hour video should take about 55 minutes). `--res 720 --quality fast` is about twice as fast. Narration uses 6 parallel requests. |
+| Resumable | finished narration, clips and shots are reused; re-running the same command continues where it stopped |
+| Visuals | chapter title cards, stock footage with pans and zooms (7 s average shot, never two identical clips in a row), Wikimedia Commons stills over a blurred backdrop (CC0 / public domain / CC BY only), `> fact:` text cards, word-by-word captions in the look's font |
+| Audio | parallel narration, voice EQ + compression, a music playlist with 3 s crossfades (or a looped synthesized bed), ducked under the voice with a sidechain compressor, -14 LUFS target |
+| YouTube package | `video.mp4`, `chapters.txt` (timestamps), `description.txt` (your summary + chapters + sources + credits + disclosure line), `captions.srt`, `thumbnail.png` (1280x720), `credits.txt`, `timeline.json` |
+| Gates | pace, chapter length, missing sources, repeated clips, long stretches without a card or image, templated sentence openings and generic transitions ("in this chapter", "let's dive in"), missing numbers/names |
+
+Tested: a 2.5-minute and a 9.6-minute video end to end (live narration, footage, stills, fact cards, music search, resume after an
+interrupted run, audio/video lengths within 60 ms); a synthetic 100-minute, 20-chapter script through parsing, silent narration,
+timeline, captions, footage and shot planning (689 shots, 544 MB peak memory) and the full audio mix (7 minutes). A full 2-hour
+render was **not** run; its time is extrapolated from the 10-minute run. Pexels downloads for long videos are untested (no key).
+
 ## Use it from Claude (desktop app or terminal)
 **Claude desktop app:** sign in, click the **Code** tab, choose this folder, and type:
 ```
@@ -72,6 +104,12 @@ In PowerShell, put handles in quotes: `--handle '@you'`. Output goes to `out/` (
 | Extras | `poster.png`, `contact.png` + `phone.png` review sheets, `reel.srt`, `caption.txt`, `timing.json`, `gates.json`, `credits.txt` |
 
 ## Limits
+- Long-form: one synthetic voice for an hour is tiring (free voices are fine to ~30 minutes); no recorded-voiceover mode yet;
+  hard cuts only (no crossfades between shots, except dip-through-black in the calm / story / dark / luxury looks); mono audio;
+  16:9 only; the captions are burned in (the `.srt` is provided for YouTube's own subtitles).
+- YouTube may demonetize mass-produced, templated or repetitive content. The tool warns about templated writing, but only you can
+  make the video original: bring your own angle, analysis and research. Check YouTube's current AI-content disclosure rules.
+- Wikimedia Commons stills are limited to what that library has for a topic; every used image's credit goes into `description.txt`.
 - Research uses whatever Claude's web tools can read. Instagram and TikTok often block logged-out pages, and Claude cannot
   watch videos or hear audio, so "what works" comes from titles, descriptions, transcripts and articles, not from viewing.
   View counts are only reported when a page shows them.

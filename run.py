@@ -3,6 +3,7 @@
 
     python run.py examples/en.txt --handle @you          (Windows: py run.py ...)
     python run.py --setup
+    python run.py long project.md --meta project.json        (long-form videos, minutes to hours)
 Works the same on Windows, macOS and Linux.
 """
 import os, subprocess, sys
@@ -25,7 +26,11 @@ def main():
         subprocess.check_call([str(PY), "-m", "pip", "install", "-q", "-r", str(ROOT / "requirements.txt")])
         MARK.write_text("ok")
     env = dict(os.environ, PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
-    sys.exit(subprocess.call([str(PY), str(ROOT / "reel.py"), *sys.argv[1:]], env=env, cwd=ROOT))
+    args = sys.argv[1:]
+    target = "reel.py"
+    if args and args[0] in ("long", "video"):       # python run.py long project.md ...
+        target, args = "long.py", args[1:]
+    sys.exit(subprocess.call([str(PY), str(ROOT / target), *args], env=env, cwd=ROOT))
 
 
 if __name__ == "__main__":

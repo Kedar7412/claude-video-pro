@@ -1,13 +1,14 @@
 # Reel pipeline rules
 
-When asked for a reel/video, follow `.claude/skills/make-reel/SKILL.md` (also available as `/reel <topic>`).
+Reels / TikToks / Shorts (under ~90 s): follow `.claude/skills/make-reel/SKILL.md` (`/reel <topic>`).
+Long videos (5 min to 2 hours): follow `.claude/skills/make-video/SKILL.md` (`/video <topic>`).
 Always go through intent → research → brief before writing a script; the brief is what makes each reel fit its topic.
 
 ## Code map
 `reel.py` (CLI, timing, encode) · `run.py` (venv launcher) · `reelkit/script.py` (parse, *emphasis*, kinds, LLM script) ·
 `voice.py` (TTS, alignment) · `music.py` (synth, track loading, beat detection, voice polish, mix) ·
 `footage.py` (Pexels/local clips, frame streaming, camera) · `kinetic.py` (footage style renderer) ·
-`looks.py` (look presets) · `musicsearch.py` (CC0/CC BY music from Wikimedia Commons) ·
+`looks.py` (look presets) · `longform.py` / `longscript.py` / `images.py` (long videos: ffmpeg-composed shots, ASS captions, YouTube package) · `musicsearch.py` (CC0/CC BY music from Wikimedia Commons) ·
 `render.py` + `figures.py` (cards style, host, props) · `checks.py` (gates)
 
 ## Render contract
@@ -27,3 +28,8 @@ Always go through intent → research → brief before writing a script; the bri
 
 ## Never commit
 `.env` (API keys), `.cache/`, `models/`, `out/`.
+
+## Long-form rules
+- Keep grades to `eq` and `lutyuv`; `colorbalance` and `curves` cost 5-10x the render time.
+- Each shot is one ffmpeg call; caption lines never straddle a cut; shot lengths are frame-snapped so audio and video stay in sync.
+- Never claim a long render was run if it was not; report what was tested.
