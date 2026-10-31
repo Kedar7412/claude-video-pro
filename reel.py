@@ -5,17 +5,23 @@
   python reel.py --topic "why sleep matters"      # LLM writes it (ANTHROPIC_API_KEY or OPENAI_API_KEY)
   python reel.py --topic "my topic" --points "one;two;three"   # no key: your points, hook formula + CTA added
   python reel.py script.txt --formats 9:16,1:1,16:9            # all aspect ratios from one timeline
+  python reel.py script.txt --broll-dir my_clips/              # footage style from your own clips
+  python reel.py script.txt --music-file track.mp3             # cut on the beats of your own track
   python reel.py --setup                                       # pre-download Whisper + offline voice
+Footage style uses Pexels stock video when PEXELS_API_KEY is set (environment or .env file).
 """
-import argparse, json, math, re, subprocess, sys, tempfile, wave
+import argparse, json, math, os, re, subprocess, sys, tempfile, wave
 from pathlib import Path
 
 import numpy as np
 
-from reelkit import figures, music, script as scriptmod, voice
+from reelkit import figures, footage, music, script as scriptmod, voice
 from reelkit.checks import load_history, originality, run_gates, save_history
 from reelkit.common import FFMPEG, FORMATS, FPS, SR, Scene
+from reelkit.kinetic import ACCENTS, FootageRenderer
 from reelkit.render import PALETTES, Renderer
+
+ROOT = Path(__file__).resolve().parent
 
 
 for _stream in (sys.stdout, sys.stderr):   # Windows consoles default to a legacy codepage
@@ -24,6 +30,18 @@ for _stream in (sys.stdout, sys.stderr):   # Windows consoles default to a legac
 
 
 def log(msg): print(msg, file=sys.stderr, flush=True)
+
+
+def load_env(path):
+    """Minimal .env reader: KEY=VALUE lines; existing environment variables win."""
+    try:
+        for line in Path(path).read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+    except FileNotFoundError:
+        pass
 
 
 def compute_timing(scenes, bpm):
@@ -46,13 +64,13 @@ def write_wav(path, pcm):
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR); w.writeframes(pcm.tobytes())
 
 
-def render_video(scenes, renderer, out: Path, total, mix_pcm, blur):
+def render_video(scenes, renderer, out: Path, total, mix_pcm, blur, preset="medium"):
     W, H = renderer.W, renderer.H
     with tempfile.TemporaryDirectory() as td:
         wav = Path(td) / "audio.wav"; write_wav(wav, mix_pcm)
         proc = subprocess.Popen(
             [FFMPEG, "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS),
-             "-i", "pipe:0", "-i", str(wav), "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
+             "-i", "pipe:0", "-i", str(wav), "-c:v", "libx264", "-preset", preset, "-crf", "18", "-pix_fmt", "yuv420p",
              "-c:a", "aac", "-b:a", "192k", "-af", "loudnorm=I=-14:TP=-1.5:LRA=11", "-shortest",
              "-movflags", "+faststart", str(out)], stdin=subprocess.PIPE)
         frames = int(math.ceil(total * FPS))
@@ -113,8 +131,18 @@ def main():
     ap.add_argument("--mood", choices=list(music.MOODS), default="upbeat")
     ap.add_argument("--bpm", type=float, default=None, help="beat grid (default: the mood's tempo)")
     ap.add_argument("--music", choices=["synth", "none"], default="synth")
+    ap.add_argument("--music-file", type=Path, help="your own (royalty-free) track; cuts land on its detected beats")
+    ap.add_argument("--music-start", type=float, default=0.0, help="seconds into --music-file to start from")
+    ap.add_argument("--style", choices=["auto", "footage", "cards"], default="auto",
+                    help="footage = full-screen b-roll + kinetic captions; cards = animated typographic cards. "
+                         "auto picks footage when clips are available")
+    ap.add_argument("--broll-dir", type=Path, help="folder of your own video clips for the footage style")
+    ap.add_argument("--title", default=None, help="short series title shown at the top (footage style)")
+    ap.add_argument("--accent", choices=list(ACCENTS), default="yellow", help="caption highlight colour (footage style)")
+    ap.add_argument("--no-polish", action="store_true", help="skip the voice EQ/compression chain")
     ap.add_argument("--palette", choices=PALETTES, default="studio")
-    ap.add_argument("--host", choices=["paper", "none"], default="paper", help="lip-synced paper-cut presenter")
+    ap.add_argument("--host", choices=["auto", "paper", "none"], default="auto",
+                    help="lip-synced paper-cut presenter (cards style; auto = on for cards)")
     ap.add_argument("--host-photo", type=Path, help="use this photo as the host's face (square-cropped)")
     ap.add_argument("--no-props", action="store_true", help="disable script-matched illustrations")
     ap.add_argument("--handle", default="", help="e.g. @yourname; shown on every scene and the end screen")
@@ -128,6 +156,7 @@ def main():
     ap.add_argument("--no-history", action="store_true")
     ap.add_argument("--force", action="store_true", help="render even if quality gates fail")
     a = ap.parse_args()
+    load_env(ROOT / ".env")
     if a.setup:
         voice.setup([a.lang]); return
     formats = [f.strip() for f in a.formats.split(",") if f.strip()]
@@ -151,6 +180,21 @@ def main():
     if len(scenes) < 2: sys.exit("need at least 2 scenes")
     props = meta.get("props")
     figures.assign_props(scenes, props if props and len(props) == len(scenes) else None)
+    broll = meta.get("broll") or []
+    if broll and len(broll) != len(scenes):
+        log(f"    ! meta has {len(broll)} b-roll queries for {len(scenes)} scenes; using them in order")
+    for s_, q in zip(scenes, broll):
+        s_.broll = q or None
+    pexels_key = os.environ.get("PEXELS_API_KEY", "").strip()
+    has_paths = any(s_.broll and Path(s_.broll).exists() for s_ in scenes)
+    style = a.style
+    if style == "auto":
+        style = "footage" if (pexels_key or a.broll_dir or has_paths) else "cards"
+        if style == "cards":
+            log("    style: cards (for the footage style add a free PEXELS_API_KEY to .env, or pass --broll-dir)")
+    if style == "footage" and not (pexels_key or a.broll_dir or has_paths):
+        sys.exit("footage style needs PEXELS_API_KEY (in .env), --broll-dir, or clip paths in the meta 'broll' list")
+    log(f"    style: {style}")
     log("    " + ", ".join(f"{s.kind}" + (f"+{s.prop}" if s.prop else "") for s in scenes))
 
     # 2. voice
@@ -158,7 +202,16 @@ def main():
     voice.synthesize(scenes, a.tts, a.voice, a.lang, a.wpm, a.rate, a.audio)
 
     # 3. timing
-    bpm = a.bpm or music.mood_bpm(a.mood)
+    track, track_start = None, 0.0
+    if a.music_file:
+        track = music.load_track(a.music_file)
+        tb, phase, conf = music.detect_beats(track[int(a.music_start * music.SR):])
+        track_start = a.music_start + phase
+        log(f"    music file: {tb:.1f} bpm, first beat at {track_start:.2f}s, beat confidence {conf:.0%}")
+        if conf < 0.3:
+            log("    ! this track has no clear beat; cuts will follow the voice, not the music (pass --bpm to force a grid)")
+            tb, track_start = 120.0, a.music_start
+    bpm = a.bpm or (tb if track is not None else music.mood_bpm(a.mood))
     total = compute_timing(scenes, bpm)
     log(f"3/6 timing: {total:.1f}s @ {bpm:.0f} bpm, captions from: {scenes[0].timing_source}")
     voice_pcm = np.concatenate([s.audio for s in scenes])
@@ -166,10 +219,34 @@ def main():
     # 4. gates (every requested format has its own layout, so each is checked)
     renderers, all_hard, gates_out = {}, [], {}
     history = load_history(a.history)
+    credits = {}
+    title_text = a.title if a.title is not None else meta.get("title", "")
     for f in formats:
-        r = Renderer(scenes, a.palette, a.handle, a.font, FORMATS[f], a.host, not a.no_props, a.host_photo, voice_pcm)
+        r = None
+        if style == "footage":
+            log(f"    finding footage for {f}")
+            clips = footage.find_clips(scenes, FORMATS[f], pexels_key or None, a.broll_dir)
+            if any(clips):
+                r = FootageRenderer(scenes, clips, FORMATS[f], a.handle, title_text, a.accent, a.font)
+                r.clip_names = [c.source_id for c in clips]
+                for c in clips:
+                    if c: credits[c.credit] = 1
+            else:
+                log(f"    ! no footage found for {f}; falling back to cards")
+        if r is None:
+            host = "paper" if a.host == "auto" else a.host
+            r = Renderer(scenes, a.palette, a.handle, a.font, FORMATS[f], host, not a.no_props, a.host_photo, voice_pcm)
         renderers[f] = r
         g = run_gates(scenes, r, total, a.max_seconds)
+        names = getattr(r, "clip_names", None)
+        if names:
+            g["info"]["footage"] = names
+            reused = [i + 1 for i in range(1, len(names)) if names[i] in names[:i]]
+            if reused:
+                g["warnings"].append(f"scenes {', '.join(map(str, reused))} reuse a clip already shown; give them their own b-roll query")
+            missing = [i + 1 for i, s_ in enumerate(scenes) if not s_.broll]
+            if missing and pexels_key and not a.broll_dir:
+                g["warnings"].append(f"scenes {', '.join(map(str, missing))} had no b-roll query; footage was guessed from the words")
         gates_out[f] = g
         all_hard += [f"[{f}] {m}" for m in g["hard_failures"]]
     title = a.topic or (a.script.name if a.script else "")
@@ -186,12 +263,12 @@ def main():
         sys.exit("fix the above (or use --force)")
 
     # 5. render
-    mix = music.mix(voice_pcm, scenes, a.mood, bpm, a.music == "synth", raw)
+    mix = music.mix(voice_pcm, scenes, a.mood, bpm, a.music == "synth", raw, track, track_start, not a.no_polish)
     outs = {}
     for f in formats:
         out = a.out if len(formats) == 1 else a.out.with_name(f"{a.out.stem}_{fmt_slug(f)}{a.out.suffix}")
         log(f"5/6 render {f} → {out.name}")
-        render_video(scenes, renderers[f], out, total, mix, a.blur)
+        render_video(scenes, renderers[f], out, total, mix, a.blur, "veryfast" if a.blur <= 1 else "medium")
         outs[f] = out
 
     # 6. extras
@@ -207,9 +284,13 @@ def main():
     cap = meta.get("caption") or f"{scenes[0].text}\n\n{scenes[-1].text}"
     (d / "caption.txt").write_text(f"{cap}\n\n{tagline}\n", encoding="utf-8")
     (d / "timing.json").write_text(json.dumps(
-        [{"text": s.text, "kind": s.kind, "prop": s.prop, "start": round(s.start, 2), "dur": round(s.dur, 2),
+        [{"text": s.text, "kind": s.kind, "prop": s.prop, "broll": s.broll, "emph": sorted(s.emph), "start": round(s.start, 2), "dur": round(s.dur, 2),
           "words": [[w, round(s.start + x, 2), round(s.start + y, 2)] for w, (x, y) in zip(s.words, s.word_times)]}
          for s in scenes], indent=1))
+    if credits:
+        (d / "credits.txt").write_text("Footage:\n" + "\n".join(f"- {c}" for c in credits) + "\n", encoding="utf-8")
+    for r in renderers.values():
+        if hasattr(r, "close"): r.close()
     if not a.no_history:
         save_history(a.history, scenes, title)
     log("done → " + ", ".join(str(o) for o in outs.values()))

@@ -21,6 +21,8 @@ class Scene:
     word_times: list = field(default_factory=list)   # (start, end) per word, relative to scene
     timing_source: str = "estimated"
     prop: "str | None" = None
+    emph: set = field(default_factory=set)      # indices of words marked *like this* in the script
+    broll: "str | None" = None                  # stock-footage search query or a clip path
 
 
 def norm(w: str) -> str:

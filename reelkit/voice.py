@@ -15,11 +15,11 @@ import numpy as np
 from .common import SR, Scene, norm, pcm_to_16k_float, to_pcm
 
 EDGE_PREFERRED = {
-    "en": "en-US-AndrewNeural", "es": "es-ES-AlvaroNeural", "fr": "fr-FR-HenriNeural", "de": "de-DE-ConradNeural",
+    "en": "en-US-AndrewMultilingualNeural", "es": "es-ES-AlvaroNeural", "fr": "fr-FR-HenriNeural", "de": "de-DE-ConradNeural",
     "pt": "pt-BR-AntonioNeural", "it": "it-IT-DiegoNeural", "ru": "ru-RU-DmitryNeural", "el": "el-GR-NestorasNeural",
     "vi": "vi-VN-NamMinhNeural", "pl": "pl-PL-MarekNeural", "tr": "tr-TR-AhmetNeural", "uk": "uk-UA-OstapNeural",
 }
-GAP = 0.25  # seconds of silence after each scene's speech
+GAP = 0.12  # seconds of silence after each scene's speech (beat padding adds a little more)
 
 
 # ───────────────────────── alignment helpers ─────────────────────────
@@ -202,6 +202,9 @@ def _finish(s: Scene, pcm: np.ndarray, timed, source: str):
         if s.kind != "hook":  # keep a little breath before non-hook scenes
             lead = max(0.0, lead - 0.04)
     cut = int(lead * SR)
+    if timed:   # drop the provider's trailing silence too, keeping a short natural tail
+        end = int(min(len(pcm), (timed[-1][2] + 0.14) * SR))
+        pcm = pcm[:max(end, cut + 1)]
     pcm = pcm[cut:]
     s.speech = len(pcm) / SR
     s.audio = np.concatenate([pcm, np.zeros(int(GAP * SR), dtype=np.int16)])
@@ -211,7 +214,7 @@ def _finish(s: Scene, pcm: np.ndarray, timed, source: str):
         s.timing_source = source
 
 
-def _edge_retry(text, voice, lang, rate, tries=3):
+def _edge_retry(text, voice, lang, rate, tries=8):   # the free service drops a share of requests; retry quickly
     last = None
     for k in range(tries):
         try:
@@ -221,7 +224,7 @@ def _edge_retry(text, voice, lang, rate, tries=3):
             return to_pcm(audio), timed
         except Exception as e:
             last = e
-            time.sleep(1.5 * (k + 1))
+            time.sleep(min(3.0, 0.6 * (k + 1)))
     raise RuntimeError(f"edge TTS failed after {tries} tries: {last}")
 
 
@@ -258,24 +261,21 @@ def synthesize(scenes: list[Scene], provider: str, voice: str, lang: str, wpm: i
     if provider == "file":
         return _from_recording(scenes, audio_path, lang)
     chain = ["edge", "piper", "none"] if provider == "auto" else [provider]
-    for s in scenes:
-        for k, prov in enumerate(chain):
-            try:
-                pcm, timed, src = _one(s, prov, voice, lang, wpm, rate)
-                break
-            except Exception as e:
-                if k == len(chain) - 1:
-                    raise
-                log(f"    ! {prov} failed ({e}); falling back to {chain[k + 1]}")
+    for k, prov in enumerate(chain):
+        try:
+            results = [_one(s, prov, voice, lang, wpm, rate) for s in scenes]   # all scenes, one voice
+            break
+        except Exception as e:
+            if k == len(chain) - 1:
+                raise
+            log(f"    ! {prov} failed ({e}); using {chain[k + 1]} for every scene so the voice stays the same")
+    for s, (pcm, timed, src) in zip(scenes, results):
         if prov == "none":
             s.speech = len(pcm) / SR
             s.audio = np.concatenate([pcm, np.zeros(int(GAP * SR), dtype=np.int16)])
             s.timing_source = "estimated"
         else:
             _finish(s, pcm, timed, src)
-        # once a provider has failed, stay on the one that worked for the rest of the script
-        if provider == "auto" and prov != chain[0]:
-            chain = chain[chain.index(prov):]
 
 
 def setup(langs):
