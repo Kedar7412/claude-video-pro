@@ -147,9 +147,9 @@ def cached(key_parts, fn):
 
 
 # ───────────────────────── providers ─────────────────────────
-async def _edge_async(text, voice, rate):
+async def _edge_async(text, voice, rate, pitch="+0Hz"):
     import edge_tts
-    c = edge_tts.Communicate(text, voice, rate=rate, boundary="WordBoundary")
+    c = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch, boundary="WordBoundary")
     audio, words = b"", []
     async for ch in c.stream():
         if ch["type"] == "audio":
@@ -214,11 +214,11 @@ def _finish(s: Scene, pcm: np.ndarray, timed, source: str):
         s.timing_source = source
 
 
-def _edge_retry(text, voice, lang, rate, tries=8):   # the free service drops a share of requests; retry quickly
+def _edge_retry(text, voice, lang, rate, pitch="+0Hz", tries=8):   # the free service drops a share of requests; retry quickly
     last = None
     for k in range(tries):
         try:
-            audio, timed = asyncio.run(_edge_async(text, pick_edge_voice(lang, voice), rate))
+            audio, timed = asyncio.run(_edge_async(text, pick_edge_voice(lang, voice), rate, pitch))
             if not audio:
                 raise RuntimeError("empty audio")
             return to_pcm(audio), timed
@@ -233,13 +233,14 @@ def _piper_one(text, lang):
     return pcm, transcribe_words(pcm, lang)
 
 
-def _one(s: Scene, provider, voice, lang, wpm, rate):
+def _one(s: Scene, provider, voice, lang, wpm, rate, pitch="+0Hz"):
     """Returns (pcm, timed, source_label)."""
     if provider == "none":
         secs = max(1.4, len(s.words) * 60 / wpm + 0.3)
         return np.zeros(int(secs * SR), dtype=np.int16), None, "estimated"
     if provider == "edge":
-        pcm, t = cached(("edge", pick_edge_voice(lang, voice), rate, s.text), lambda: _edge_retry(s.text, voice, lang, rate))
+        key = ("edge", pick_edge_voice(lang, voice), rate, s.text) + ((pitch,) if pitch not in ("", "+0Hz") else ())
+        pcm, t = cached(key, lambda: _edge_retry(s.text, voice, lang, rate, pitch))
         return pcm, t, "edge word boundaries"
     if provider == "piper":
         pcm, t = cached(("piper", lang, s.text), lambda: _piper_one(s.text, lang))
@@ -257,13 +258,13 @@ def _one(s: Scene, provider, voice, lang, wpm, rate):
     raise SystemExit(f"unknown tts provider {provider}")
 
 
-def synthesize(scenes: list[Scene], provider: str, voice: str, lang: str, wpm: int, rate: str, audio_path=None):
+def synthesize(scenes: list[Scene], provider: str, voice: str, lang: str, wpm: int, rate: str, audio_path=None, pitch="+0Hz"):
     if provider == "file":
         return _from_recording(scenes, audio_path, lang)
     chain = ["edge", "piper", "none"] if provider == "auto" else [provider]
     for k, prov in enumerate(chain):
         try:
-            results = [_one(s, prov, voice, lang, wpm, rate) for s in scenes]   # all scenes, one voice
+            results = [_one(s, prov, voice, lang, wpm, rate, pitch) for s in scenes]   # all scenes, one voice
             break
         except Exception as e:
             if k == len(chain) - 1:
@@ -276,6 +277,16 @@ def synthesize(scenes: list[Scene], provider: str, voice: str, lang: str, wpm: i
             s.timing_source = "estimated"
         else:
             _finish(s, pcm, timed, src)
+
+
+def list_voices(prefix="en"):
+    """Print Edge voices for a language with Microsoft's own personality tags, so a brief can pick by character."""
+    import edge_tts
+    for v in sorted(asyncio.run(edge_tts.list_voices()), key=lambda v: v["ShortName"]):
+        if v["Locale"].lower().startswith(prefix.lower()):
+            t = v.get("VoiceTag", {})
+            print(f'{v["ShortName"]:34} {v["Gender"]:6}  {", ".join(t.get("VoicePersonalities", []))}'
+                  f'  [{", ".join(t.get("ContentCategories", []))}]')
 
 
 def setup(langs):

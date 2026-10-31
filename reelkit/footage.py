@@ -173,7 +173,11 @@ class SceneVideo:
     """Decodes one clip at Z x the output size (cover-cropped, graded) and returns camera-framed frames."""
     Z = 1.18
 
-    def __init__(self, clip, W, H, dur, idx, grade=True):
+    def __init__(self, clip, W, H, dur, idx, grade="eq=contrast=1.07:saturation=1.15:brightness=-0.02,vignette=angle=PI/5",
+                 camera=None):
+        cam = camera or {}
+        self.amount, self.punch = cam.get("amount", 1.0), cam.get("punch", 1.0)
+        self.shake_on, self.exit_zoom = cam.get("shake", True), cam.get("exit_zoom", True)
         self.clip, self.W, self.H, self.dur = clip, W, H, dur
         self.SW, self.SH = int(W * self.Z) // 2 * 2, int(H * self.Z) // 2 * 2
         self.motion = MOTIONS[idx % len(MOTIONS)]
@@ -191,7 +195,7 @@ class SceneVideo:
         ss = (self.off + idx / FPS) % cd
         vf = (f"scale={self.SW}:{self.SH}:force_original_aspect_ratio=increase:flags=bicubic,crop={self.SW}:{self.SH},fps={FPS}")
         if self.grade:
-            vf += ",eq=contrast=1.07:saturation=1.15:brightness=-0.02,vignette=angle=PI/5"
+            vf += "," + self.grade
         cmd = [FFMPEG, "-v", "error", "-stream_loop", "-1", "-ss", f"{ss:.3f}", "-i", str(self.clip.path),
                "-t", f"{max(0.5, self.dur - idx / FPS + 0.5):.3f}", "-an", "-vf", vf,
                "-f", "rawvideo", "-pix_fmt", "rgb24", "pipe:1"]
@@ -218,22 +222,24 @@ class SceneVideo:
         p = lt / max(self.dur, 0.01)
         Z = self.Z
         m, dx, dy = 1.0, 0.0, 0.0
-        if self.motion == "push": m = 1.0 + 0.13 * ease_io(p)
-        elif self.motion == "pull": m = 1.13 - 0.13 * ease_io(p)
+        A = self.amount
+        if self.motion == "push": m = 1.0 + 0.13 * A * ease_io(p)
+        elif self.motion == "pull": m = 1.0 + 0.13 * A * (1 - ease_io(p))
         else:
-            m = 1.09
-            span = 1 - 2 * ease_io(p)
+            m = 1.0 + 0.09 * max(A, 0.35)
+            span = (1 - 2 * ease_io(p)) * min(1.0, A * 1.2)
             if self.motion == "pan_r": dx = -span
             elif self.motion == "pan_l": dx = span
             else: dy = span
-        m += 0.08 * (1 - spring(lt, 300, 24))                        # punch-in on the cut
+        m += 0.08 * self.punch * (1 - spring(lt, 300, 24))          # punch-in on the cut
         tail = self.dur - lt
-        if tail < 0.14: m += 0.07 * ((0.14 - tail) / 0.14) ** 2     # zoom-through into the next cut
+        if self.exit_zoom and 0 <= tail < 0.14:
+            m += 0.07 * ((0.14 - tail) / 0.14) ** 2                  # zoom-through into the next cut
         m = min(max(m, 1.0), Z)
         cw, ch = self.SW / m, self.SH / m
         mxp, myp = (self.SW - cw) / 2, (self.SH - ch) / 2
         ox, oy = dx * mxp, dy * myp
-        for t0 in shakes:                                            # small shake on stressed words
+        for t0 in (shakes if self.shake_on else ()):                 # small shake on stressed words
             dt = lt - t0
             if 0 <= dt < 0.3:
                 amp = 14 * math.exp(-dt * 11)

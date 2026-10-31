@@ -1,99 +1,103 @@
 ---
 name: make-reel
-description: Make a finished short-form video (Reel / TikTok / Short) from a topic or script, with stock footage, kinetic captions, voiceover, music and a post caption. Use when the user asks for a reel, TikTok, short, promo clip or explainer video.
+description: Make a finished short-form video (Reel / TikTok / Short) from a request. First works out the intent, researches the topic and similar successful short videos, and writes a creative brief (duration, hook, tone, voice, music, look, footage types); then scripts, renders and reviews it. Use when the user asks for a reel, TikTok, short, promo clip or explainer video.
 ---
 
 # Make a reel
 
-You (Claude) are the scriptwriter, footage picker and reviewer. `reel.py` does the voice, editing and encoding.
-No LLM API key is needed: you write the script yourself. Run commands from the project folder.
+You (Claude) are the producer: researcher, scriptwriter, footage picker and reviewer. `reel.py` does the voice,
+editing and encoding. No LLM API key is needed. Run commands from the project folder.
 
-Commands below use `python run.py`. If `python` is not found on Windows, use `py run.py`. In PowerShell, always quote
-handles: `--handle '@name'` (an unquoted @ is PowerShell syntax and the handle disappears).
+Commands use `python run.py`. If `python` is not found on Windows, use `py run.py`. In PowerShell, always quote handles:
+`--handle '@name'`.
 
 ## 0. One-time setup
 - If `.venv` is missing: `python run.py --setup`.
-- Footage needs a free Pexels key. Check `.env` for `PEXELS_API_KEY=`. If it is missing, tell the user:
-  "Make a free account at https://www.pexels.com/api/, copy your API key, and paste it here." Then write the line
-  `PEXELS_API_KEY=<key>` to `.env` (never print the key back, never commit `.env`).
-  Without a key, either use the user's own clips (`--broll-dir folder`) or fall back to `--style cards`, and say so.
+- Footage needs a free Pexels key in `.env` (`PEXELS_API_KEY=...`). If missing, ask the user to create one at
+  https://www.pexels.com/api/ and paste it; write it to `.env` yourself (never echo it, never commit `.env`).
+  Without a key, use the user's clips (`--broll-dir`) or `--style cards`, and say so.
 
-## 1. Collect inputs (ask only for what is missing; offer defaults)
-Topic or finished script · handle · language (default English) · length (default 25-35 s) · formats (default 9:16;
-also 4:5, 1:1, 16:9) · music: their own royalty-free track (best) or the built-in synth · facts or numbers they want used.
+Every reel goes through phases A to G. Do not skip A-C: they are what make each reel fit its topic.
 
-Never invent statistics, studies, quotes or testimonials. If the user gave no facts, write advice or opinion
-("Start with 30 seconds"), not data ("Studies show 47%..."). If a claim needs a source, ask for it.
+## A. Understand the request
+Work out, from the user's words (ask at most 2 questions, only if the answer changes the video):
+- **Intent:** educate / tips · story / case study · motivate · mystery / warning · promote / sell · aesthetic / mood · humour.
+- **Audience** and **platform** (default Instagram Reels), **desired action** (follow, save, comment, buy, visit).
+- **Constraints:** handle, language, must-say facts, brand colours, the user's own clips or music.
 
-## 2. Write the script: `scripts/<slug>.txt`
-One scene per paragraph (blank line between). 6-8 scenes, 55-90 words total.
+## B. Research (use your web search and web fetch tools)
+Spend about 5-10 searches. Save notes with source URLs to `scripts/<slug>.research.md`.
+1. **Facts.** Find 3-6 accurate, specific facts about the topic from reputable sources (official bodies, studies,
+   major publications). Only facts you found with a source may appear as numbers or claims in the script.
+2. **What works in this niche.** Search for successful short videos close to the request, for example
+   `"<topic>" reel`, `"<topic>" tiktok`, `"<topic>" shorts`, `best <niche> reels hooks`, `<niche> viral short video format`.
+   Read what is reachable: video titles and descriptions, YouTube Shorts pages, transcripts, creator or marketing
+   articles that analyse top posts. Note for the closest examples:
+   - the hook line or pattern, length, pacing (how often the shot changes), who or what is on screen
+     (b-roll, talking head, screen recording, text-only), caption style, music vibe, the call to action.
+   - view or like counts **only if the page shows them**. Never guess popularity.
+3. **Be honest about limits.** Instagram and TikTok often block logged-out pages, and you cannot watch videos or hear
+   audio. Base conclusions on what you could read, and say in the brief what you could not check.
+4. Take **patterns**, never someone else's script, footage or audio.
 
-**Structure**
-1. **Hook (scene 1), at most 8 words.** It must make a scroller stop. Pick one pattern:
-   - Call out a mistake: "You're ending your shower wrong."
-   - Contrarian claim: "Cold showers don't burn fat."
-   - Specific result: "I took cold showers for 30 days."
-   - Curiosity gap: "Nobody tells you the last 30 seconds matter."
-   Never open with a greeting, "In this video", "Today we", "Did you know", or context-setting.
-2. **Stakes or open loop (scene 2):** why it matters, or a promise that keeps them watching ("The third one is the one people skip.").
-3. **Body (3-4 scenes):** one idea each, each with a concrete detail (a number, an object, a time, a sensation).
-   Put the strongest or most surprising point last.
-4. **Payoff + call to action (last scene):** one action and one reason ("Follow for the next habit that actually sticks.").
-   Echo the hook if you can, so the loop back to the start feels deliberate.
+## C. Creative brief: `scripts/<slug>.brief.md`
+Decide each item below and give a one-line reason that points to the research. Then show the user a short summary
+(5-8 lines) and ask "Go ahead?" once. Skip the question if they said to just make it.
 
-**Line rules**
-- At most 12 words per scene, one sentence. Write for the ear: contractions, short words, "you".
-- No filler ("basically", "actually" unless it carries meaning), no hype words (insane, game-changer, secret, unlock).
-- Mark the ONE word you would stress out loud in each scene with asterisks: `It takes *30* days.`
-  Stressed words get their own big caption beat, the accent colour and a camera shake. One per scene, never more than two.
-- Put exactly one concrete number in digits somewhere (it gets a count-up animation).
+| Decision | How to choose |
+|---|---|
+| Duration | Starting points (adjust to what the research showed): humour 7-20 s · aesthetic 10-20 s · motivate 15-30 s · promote 15-30 s · tips 25-40 s · mystery 30-50 s · story 45-75 s |
+| Hook | Write 3 candidate hooks using patterns seen in the research (mistake call-out, contrarian claim, specific result, curiosity gap, "POV:"), pick the strongest, and say why |
+| Structure | tips: hook → stakes → 3 points → payoff → CTA · story: hook → setup → turn → reveal → CTA · promote: problem → product → proof → offer → CTA · mystery: hook → detail → twist → open loop ("part 2") |
+| Look | `hype` (fast, loud) · `explainer` (clear, boxed highlight) · `calm` (soft serif, slow fades, warm) · `story` (cinematic, film grade) · `dark` (cold, red, dips to black) · `luxury` (elegant serif, gold) · `funny` (snappy, bright) |
+| Voice | Run `python run.py --list-voices en-US` (or the user's language) and pick by Microsoft's personality tags. Rough guide: hype → Guy (Passion) or Roger (Lively) · tips → Andrew (Warm, Confident) or Emma (Cheerful, Clear) · calm → Ava (Caring) or Jenny (Comfort) · story / dark → Christopher (Reliable, Authority) or Eric (Rational) · luxury → Aria (Positive, Confident) · humour → Brian (Casual). Rate -10% to +15%, pitch -6Hz to +4Hz. |
+| Music | A royalty-free search that fits the look: hype "energetic electronic", explainer "upbeat corporate", calm "calm piano", story "cinematic", dark "suspense", luxury "lounge jazz", funny "quirky". Or the user's own track. If the user wants a trending sound, render with `--music none` and tell them to add it inside Instagram, where the licensing is handled. |
+| Footage types | The kind of shots the niche uses: macro close-ups, hands doing the action, POV, people reacting, landscapes, timelapse, city, product. Write them into the b-roll queries. |
+| Accent / title | Accent colour from the look or the brand. A 2-4 word title only if the research shows series-style titles help in this niche. |
 
-**Self-check before rendering (rewrite once if any answer is no)**
-- Would the hook alone stop you scrolling? Is it under 2 seconds to say?
-- Does every scene add something new? Could you delete one without losing anything? (Then delete it.)
-- Is there a specific detail a generic AI script would not have?
+## D. Script: `scripts/<slug>.txt`
+One scene per paragraph; aim for the brief's duration at about 2.6 spoken words per second.
+- Scene 1 is the chosen hook: at most 8 words. Never open with a greeting, "In this video", "Today we" or context.
+- One idea per scene, at most 12 words, written for the ear (contractions, short words, "you").
+- Mark the ONE stressed word per scene with asterisks: `It takes *30* days.` (big caption beat, accent colour).
+- Put numbers in digits; use only numbers from your research notes or from the user.
+- No hype filler (insane, game-changer, secret, unlock). The last scene is the call to action from the brief.
+- Self-check, and rewrite once if any answer is no: would the hook stop you scrolling? Does every scene add something?
+  Is there a specific detail a generic script would not have?
 
-## 3. Write `scripts/<slug>.json`
+## E. Settings: `scripts/<slug>.json`
 ```json
-{"title": "COLD SHOWER RULE",
- "broll": ["cold shower water close up", "wall clock ticking close up", "heart rate monitor", "man waking up morning bed",
-           "hand turning shower tap", "sunrise over city"],
- "caption": "You're ending your shower wrong.\n\nThe last 30 seconds do the work.\n\nSave this for tomorrow morning.",
- "hashtags": ["coldshower", "morningroutine", "habits"]}
+{"look": "story", "duration": 50,
+ "voice": "en-US-ChristopherNeural", "rate": "+2%", "pitch": "-2Hz",
+ "music_search": "cinematic", "accent": "orange", "title": "",
+ "look_overrides": {"camera": {"amount": 0.5}, "caption": {"size": 0.9}},
+ "broll": ["old pocket watch macro close up", "foggy london street night", "hands opening old letter", "..."],
+ "caption": "hook line\n\n1-2 lines of value\n\nCTA line", "hashtags": ["specific", "tags"]}
 ```
-- `title`: 2-4 words in capitals, shown at the top the whole time. Use "" for none.
-- `broll`: one stock-footage search per scene, in order. 2-5 concrete, filmable words: objects, actions, places
-  ("hand turning shower tap", "runner tying shoes"). Never abstract ideas ("motivation", "productivity").
-  Vary the shots (close-up, wide, people, objects). Avoid queries likely to return text-heavy screens or logos.
-  To get a different result for the same query, add `#2`, `#3`: `"sunrise over city#2"`.
-  A scene can also use a local file path instead of a query.
-- `caption`: line 1 repeats the hook (the only line visible before "more"), 1-2 lines of extra value, then the CTA.
-- `hashtags`: 3-5 specific tags, not generic ones like fyp.
+- Every field except `broll` is optional; missing ones come from the look.
+- `look_overrides` can change: `caption` (`font` anton/montserrat/playfair, `weight`, `case` upper/sentence, `size`, `words`,
+  `chars`, `highlight` color/box/reveal, `stroke`, `pos`), `camera` (`amount`, `punch`, `shake`, `exit_zoom`),
+  `cut` (flash/zoom/fade/dip/hard), `grade` (punchy/clean/warm/film/cold/gold/bright/none).
+- `broll`: one query per scene, in order, 2-5 concrete filmable words, matching the brief's footage types.
+  Never abstract ideas. `query#2` picks the second result. A local clip path also works.
+- `caption`: line 1 repeats the hook. `hashtags`: 3-5 specific tags. Music credits are added automatically.
 
-## 4. Draft and review (fast)
+## F. Draft, review, fix
 ```
 python run.py scripts/<slug>.txt --meta scripts/<slug>.json --handle '@name' --blur 1 -o out/<slug>/draft.mp4
 ```
-Add `--music-file path` if the user has a track. Add `--style cards` only if there is no footage source.
-- If the gates print `✗`, fix the script and re-run. Do not use `--force` unless the user asks.
-- Read the `!` warnings. Fix "reuse a clip" by giving those scenes different queries.
-- Open `out/<slug>/contact.png` and `phone.png` and LOOK at them. Check each frame:
-  - Does the footage show what the line is about? If not, change that scene's query (or add `#2`).
-  - Watermarks, burned-in text, logos, or a face cut in half by the caption? Change the query.
-  - Are the captions readable at phone size? Is the hook's first frame strong?
-- Score 1-10: hook, footage relevance, readability, pacing, variety. Fix the 3 worst problems and re-run.
-  At most 3 rounds unless the user wants more. Re-open an image under a new filename if the viewer shows a stale one.
+- `✗` = gate failure: fix the script and re-run (no `--force` unless asked). Read every `!` warning, especially
+  duration vs the brief, clip reuse, and "no clear beat" (fine for calm or story music).
+- Open `out/<slug>/contact.png` and `phone.png` and look at every frame against the brief:
+  footage matches the line and the planned shot type? No watermarks, logos, burned-in text, faces cut by captions?
+  Captions readable at phone size? Does the first frame carry the hook? Does it feel like the chosen look?
+- Score 1-10 on hook, fit to the brief, footage relevance, readability, pacing. Fix the 3 worst issues
+  (query, `#2`, a line, a look override) and re-run. At most 3 rounds unless the user wants more.
+  Re-open an image under a new filename if the viewer shows a stale one.
 
-## 5. Final render
-Same command without `--blur 1`, `-o out/<slug>/reel.mp4`, plus `--formats 9:16,1:1,16:9` if requested.
-Expect about 1-2 minutes per format for a 30-second reel.
-
-## 6. Deliver
-Report the files (`reel*.mp4`, `poster*.png`, `caption.txt`, `reel.srt`, `credits.txt`), the duration, any remaining
-gate warnings, and what you would improve next. Say plainly that you reviewed still frames and the gate report;
-you cannot watch the motion or hear the audio, so the user should watch it once before posting.
-
-## Useful flags
-`--accent yellow|green|orange|pink|cyan` · `--title "..."` · `--music-file track.mp3 --music-start 12` ·
-`--voice en-US-AvaMultilingualNeural` (female) · `--tts elevenlabs --voice <id>` (needs `ELEVENLABS_API_KEY` in `.env`) ·
-`--tts file --audio take.m4a` (the user's own recording) · `--lang es` · `--broll-dir folder` · `--style cards`.
+## G. Final render and delivery
+Run the same command without `--blur 1`, with `-o out/<slug>/reel.mp4` and `--formats ...` if requested.
+Report: the brief in 4-6 lines (intent, duration, hook, look, voice, music, footage types, and the research behind them),
+the files (`reel*.mp4`, `poster*.png`, `caption.txt`, `credits.txt`, `reel.srt`), remaining warnings, and what you
+could not verify (you reviewed still frames and read sources; you did not watch the motion, hear the audio, or see
+the reference videos themselves). Suggest the user watch it once before posting.

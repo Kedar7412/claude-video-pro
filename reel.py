@@ -15,7 +15,7 @@ from pathlib import Path
 
 import numpy as np
 
-from reelkit import figures, footage, music, script as scriptmod, voice
+from reelkit import figures, footage, looks, music, musicsearch, script as scriptmod, voice
 from reelkit.checks import load_history, originality, run_gates, save_history
 from reelkit.common import FFMPEG, FORMATS, FPS, SR, Scene
 from reelkit.kinetic import ACCENTS, FootageRenderer
@@ -125,20 +125,25 @@ def main():
     ap.add_argument("--lang", default="en", help="voice/caption language code (en, es, fr, de, pt, it, ru, el, vi...)")
     ap.add_argument("--tts", choices=["auto", "edge", "piper", "elevenlabs", "openai", "file", "none"], default="auto",
                     help="auto = edge (3 tries) -> offline piper -> silent estimate")
-    ap.add_argument("--voice", default="", help="provider voice name/id (edge: e.g. en-US-AriaNeural)")
-    ap.add_argument("--rate", default="+8%", help="edge speaking rate, e.g. +8%%")
+    ap.add_argument("--voice", default=None, help="provider voice name/id (edge: see --list-voices)")
+    ap.add_argument("--rate", default=None, help="edge speaking rate, e.g. +8%%")
+    ap.add_argument("--pitch", default=None, help="edge pitch, e.g. -4Hz")
+    ap.add_argument("--list-voices", nargs="?", const="en", metavar="LANG", help="list Edge voices with personality tags, then exit")
+    ap.add_argument("--look", choices=list(looks.LOOKS), default=None,
+                    help="style preset: captions, camera, cuts, grade, music mood and voice (default: brief, else hype)")
     ap.add_argument("--audio", type=Path, help="your own voiceover (with --tts file); aligned to the script by Whisper")
-    ap.add_argument("--mood", choices=list(music.MOODS), default="upbeat")
+    ap.add_argument("--mood", choices=list(music.MOODS), default=None)
     ap.add_argument("--bpm", type=float, default=None, help="beat grid (default: the mood's tempo)")
     ap.add_argument("--music", choices=["synth", "none"], default="synth")
     ap.add_argument("--music-file", type=Path, help="your own (royalty-free) track; cuts land on its detected beats")
-    ap.add_argument("--music-start", type=float, default=0.0, help="seconds into --music-file to start from")
+    ap.add_argument("--music-start", type=float, default=None, help="seconds into the music to start from")
+    ap.add_argument("--music-search", default=None, help="find a CC0 / CC BY track on Wikimedia Commons, e.g. 'upbeat funk'")
     ap.add_argument("--style", choices=["auto", "footage", "cards"], default="auto",
                     help="footage = full-screen b-roll + kinetic captions; cards = animated typographic cards. "
                          "auto picks footage when clips are available")
     ap.add_argument("--broll-dir", type=Path, help="folder of your own video clips for the footage style")
     ap.add_argument("--title", default=None, help="short series title shown at the top (footage style)")
-    ap.add_argument("--accent", choices=list(ACCENTS), default="yellow", help="caption highlight colour (footage style)")
+    ap.add_argument("--accent", choices=list(ACCENTS), default=None, help="caption highlight colour (footage style)")
     ap.add_argument("--no-polish", action="store_true", help="skip the voice EQ/compression chain")
     ap.add_argument("--palette", choices=PALETTES, default="studio")
     ap.add_argument("--host", choices=["auto", "paper", "none"], default="auto",
@@ -157,6 +162,8 @@ def main():
     ap.add_argument("--force", action="store_true", help="render even if quality gates fail")
     a = ap.parse_args()
     load_env(ROOT / ".env")
+    if a.list_voices:
+        voice.list_voices(a.list_voices); return
     if a.setup:
         voice.setup([a.lang]); return
     formats = [f.strip() for f in a.formats.split(",") if f.strip()]
@@ -164,6 +171,17 @@ def main():
         if f not in FORMATS: ap.error(f"unknown format {f}; choose from {', '.join(FORMATS)}")
     a.out.parent.mkdir(parents=True, exist_ok=True)
     meta = json.loads(a.meta.read_text(encoding="utf-8")) if a.meta else {}
+    # settings: command line > brief (meta) > look preset
+    look = looks.resolve(a.look or meta.get("look") or "hype", meta.get("look_overrides"))
+    pick = lambda cli, key: cli if cli is not None else (meta.get(key) if meta.get(key) not in (None, "") else look.get(key))
+    a.voice, a.rate, a.pitch = pick(a.voice, "voice"), pick(a.rate, "rate"), pick(a.pitch, "pitch")
+    a.mood, a.accent = pick(a.mood, "mood"), pick(a.accent, "accent")
+    if a.mood not in music.MOODS: a.mood = "upbeat"
+    a.music_search = a.music_search or meta.get("music_search")
+    if not a.music_file and meta.get("music_file"): a.music_file = Path(meta["music_file"])
+    if a.music_start is None: a.music_start = float(meta.get("music_start") or 0.0)
+    if a.lang != "en" and a.voice and a.voice.startswith("en-") and not a.voice.endswith("MultilingualNeural"):
+        a.voice = ""          # an English-only voice can't read another language; use the language default
 
     # 1. script
     log("1/6 script")
@@ -194,15 +212,26 @@ def main():
             log("    style: cards (for the footage style add a free PEXELS_API_KEY to .env, or pass --broll-dir)")
     if style == "footage" and not (pexels_key or a.broll_dir or has_paths):
         sys.exit("footage style needs PEXELS_API_KEY (in .env), --broll-dir, or clip paths in the meta 'broll' list")
-    log(f"    style: {style}")
+    log(f"    style: {style}, look: {a.look or meta.get('look') or 'hype'}, voice: {a.voice or 'default'} {a.rate} {a.pitch}, "
+        f"mood: {a.mood}")
     log("    " + ", ".join(f"{s.kind}" + (f"+{s.prop}" if s.prop else "") for s in scenes))
 
     # 2. voice
     log(f"2/6 voice ({a.tts})")
-    voice.synthesize(scenes, a.tts, a.voice, a.lang, a.wpm, a.rate, a.audio)
+    voice.synthesize(scenes, a.tts, a.voice or "", a.lang, a.wpm, a.rate, a.audio, a.pitch)
 
     # 3. timing
-    track, track_start = None, 0.0
+    track, track_start, music_credit = None, 0.0, ""
+    if a.music_search and not a.music_file:
+        try:
+            path, msg = musicsearch.find_track(a.music_search)
+        except Exception as e:
+            path, msg = None, f"music search failed: {e}"
+        if path:
+            a.music_file, music_credit = path, msg
+            log(f"    {msg}")
+        else:
+            log(f"    ! {msg}; using the synthesized '{a.mood}' bed")
     if a.music_file:
         track = music.load_track(a.music_file)
         tb, phase, conf = music.detect_beats(track[int(a.music_start * music.SR):])
@@ -227,7 +256,7 @@ def main():
             log(f"    finding footage for {f}")
             clips = footage.find_clips(scenes, FORMATS[f], pexels_key or None, a.broll_dir)
             if any(clips):
-                r = FootageRenderer(scenes, clips, FORMATS[f], a.handle, title_text, a.accent, a.font)
+                r = FootageRenderer(scenes, clips, FORMATS[f], a.handle, title_text, a.accent, a.font, look)
                 r.clip_names = [c.source_id for c in clips]
                 for c in clips:
                     if c: credits[c.credit] = 1
@@ -238,6 +267,10 @@ def main():
             r = Renderer(scenes, a.palette, a.handle, a.font, FORMATS[f], host, not a.no_props, a.host_photo, voice_pcm)
         renderers[f] = r
         g = run_gates(scenes, r, total, a.max_seconds)
+        target = meta.get("duration")
+        if target and abs(total - float(target)) > max(4.0, 0.25 * float(target)):
+            g["warnings"].append(f"reel is {total:.0f}s but the brief targets {float(target):.0f}s; "
+                                 f"{'cut' if total > float(target) else 'add'} a scene")
         names = getattr(r, "clip_names", None)
         if names:
             g["info"]["footage"] = names
@@ -282,13 +315,17 @@ def main():
     tags = a.hashtags if a.hashtags is not None else meta.get("hashtags") or ["reels"]
     tagline = " ".join("#" + t.lstrip("#") for t in tags)
     cap = meta.get("caption") or f"{scenes[0].text}\n\n{scenes[-1].text}"
+    if music_credit:
+        cap += f"\n\n{music_credit.split(', via')[0]}"
     (d / "caption.txt").write_text(f"{cap}\n\n{tagline}\n", encoding="utf-8")
     (d / "timing.json").write_text(json.dumps(
         [{"text": s.text, "kind": s.kind, "prop": s.prop, "broll": s.broll, "emph": sorted(s.emph), "start": round(s.start, 2), "dur": round(s.dur, 2),
           "words": [[w, round(s.start + x, 2), round(s.start + y, 2)] for w, (x, y) in zip(s.words, s.word_times)]}
          for s in scenes], indent=1))
-    if credits:
-        (d / "credits.txt").write_text("Footage:\n" + "\n".join(f"- {c}" for c in credits) + "\n", encoding="utf-8")
+    if credits or music_credit:
+        txt = ("Footage:\n" + "\n".join(f"- {c}" for c in credits) + "\n") if credits else ""
+        txt += f"\n{music_credit}\n" if music_credit else ""
+        (d / "credits.txt").write_text(txt, encoding="utf-8")
     for r in renderers.values():
         if hasattr(r, "close"): r.close()
     if not a.no_history:
