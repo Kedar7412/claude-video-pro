@@ -2,13 +2,15 @@
 A creative brief picks a look and may override any field (see SKILL.md)."""
 import copy
 
+# Grades use only cheap filters: `eq` (brightness/contrast/saturation) and `lutyuv` (tint in the small chroma planes).
+# `colorbalance` and `curves` looked similar but cost 5-10x more render time.
 GRADES = {
     "punchy":  "eq=contrast=1.10:saturation=1.25:brightness=-0.02,vignette=angle=PI/5",
     "clean":   "eq=contrast=1.04:saturation=1.08,vignette=angle=PI/7",
-    "warm":    "eq=contrast=1.03:saturation=0.98:brightness=0.01,colorbalance=rs=0.05:gs=0.01:bs=-0.05:rh=0.03:bh=-0.03,vignette=angle=PI/6",
-    "film":    "curves=preset=medium_contrast,eq=saturation=0.88,colorbalance=rs=0.03:bs=-0.02:bh=0.03,vignette=angle=PI/5",
-    "cold":    "eq=contrast=1.08:saturation=0.55:brightness=-0.04,colorbalance=bs=0.06:bm=0.03:rh=-0.02,vignette=angle=PI/4",
-    "gold":    "eq=contrast=1.06:saturation=1.05,colorbalance=rs=0.06:gs=0.03:bs=-0.07:rh=0.04:gh=0.02,vignette=angle=PI/5",
+    "warm":    "eq=contrast=1.03:saturation=0.98:brightness=0.01,lutyuv=u='val-4':v='val+5',vignette=angle=PI/6",
+    "film":    "eq=contrast=1.12:saturation=0.88,lutyuv=u='val+3':v='val+2',vignette=angle=PI/5",
+    "cold":    "eq=contrast=1.08:saturation=0.55:brightness=-0.04,lutyuv=u='val+6':v='val-4',vignette=angle=PI/4",
+    "gold":    "eq=contrast=1.06:saturation=1.05,lutyuv=u='val-6':v='val+7',vignette=angle=PI/5",
     "bright":  "eq=contrast=1.06:saturation=1.30:brightness=0.02,vignette=angle=PI/8",
     "none":    "",
 }

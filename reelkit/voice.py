@@ -258,13 +258,26 @@ def _one(s: Scene, provider, voice, lang, wpm, rate, pitch="+0Hz"):
     raise SystemExit(f"unknown tts provider {provider}")
 
 
-def synthesize(scenes: list[Scene], provider: str, voice: str, lang: str, wpm: int, rate: str, audio_path=None, pitch="+0Hz"):
+def synthesize(scenes: list[Scene], provider: str, voice: str, lang: str, wpm: int, rate: str, audio_path=None, pitch="+0Hz",
+               workers=1, progress=None):
     if provider == "file":
         return _from_recording(scenes, audio_path, lang)
     chain = ["edge", "piper", "none"] if provider == "auto" else [provider]
     for k, prov in enumerate(chain):
         try:
-            results = [_one(s, prov, voice, lang, wpm, rate, pitch) for s in scenes]   # all scenes, one voice
+            w = workers if prov in ("edge", "elevenlabs", "openai") else 1      # network calls overlap; local models don't
+            done = [0]
+            def work(s):
+                r = _one(s, prov, voice, lang, wpm, rate, pitch)
+                done[0] += 1
+                if progress and done[0] % 10 == 0: progress(done[0], len(scenes))
+                return r
+            if w > 1:
+                from concurrent.futures import ThreadPoolExecutor
+                with ThreadPoolExecutor(w) as ex:
+                    results = list(ex.map(work, scenes))
+            else:
+                results = [work(s) for s in scenes]                                 # all scenes, one voice
             break
         except Exception as e:
             if k == len(chain) - 1:

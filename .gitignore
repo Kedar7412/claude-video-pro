@@ -6,3 +6,4 @@ scratch/
 __pycache__/
 .reel_history.json
 .env
+projects/

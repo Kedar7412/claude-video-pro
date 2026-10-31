@@ -23,6 +23,10 @@ class Scene:
     prop: "str | None" = None
     emph: set = field(default_factory=set)      # indices of words marked *like this* in the script
     broll: "str | None" = None                  # stock-footage search query or a clip path
+    fact: "str | None" = None                   # long-form: text card shown over the start of this block
+    shot: "str | None" = None                   # long-form: footage query for the shot this block starts
+    chapter: int = 0                            # long-form: chapter index
+    para_end: bool = False                      # long-form: last block of its paragraph
 
 
 def norm(w: str) -> str:
