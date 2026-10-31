@@ -15,6 +15,7 @@ PALETTES = {
     "ochre":  [("#E9B44C", "#1B1B1B", "#9B2915"), ("#F6E7C1", "#2A1E10", "#C8553D")],
 }
 FONT_CANDIDATES = [
+    str(__import__("pathlib").Path(__file__).resolve().parent.parent / "assets" / "fonts" / "Montserrat[wght].ttf"),
     "/usr/share/fonts/google-noto-vf/NotoSans[wght].ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "/System/Library/Fonts/Supplemental/Arial Bold.ttf",

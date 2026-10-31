@@ -35,9 +35,28 @@ def parse_script(raw: str, max_words: int = 14) -> list[Scene]:
     texts = []
     for b in blocks:
         texts += split_long(" ".join(b.split()), max_words)
-    scenes = [Scene(text=t, words=t.split()) for t in texts]
+    scenes = []
+    for t in texts:
+        words, emph = strip_emphasis(t.split())
+        scenes.append(Scene(text=" ".join(words), words=words, emph=emph))
     assign_kinds(scenes)
     return scenes
+
+
+def strip_emphasis(words):
+    """'*cold* showers' / '*cold showers*' -> plain words + indices of emphasised ones."""
+    out, emph, inside = [], set(), False
+    for i, w in enumerate(words):
+        start = w.startswith("*")
+        clean = w.strip("*")
+        # keep trailing punctuation outside the asterisks: '*word*,' -> 'word,'
+        m = re.match(r"^\*?([^*]*?)\*([.,!?;:]*)$", w)
+        if m: clean = m.group(1) + m.group(2)
+        if start: inside = True
+        if inside or start: emph.add(i)
+        if w.rstrip(".,!?;:").endswith("*"): inside = False
+        out.append(clean.replace("*", ""))
+    return out, {i for i in emph if out[i]}
 
 
 def assign_kinds(scenes: list[Scene]):
@@ -67,8 +86,13 @@ Hard rules, based on how Reels perform:
 - Tone: {tone}. Language: {lang}. Do not make claims you cannot support; no fake statistics or testimonials.
 Also write the post caption: line 1 repeats the hook (it is the only line visible before "more"), 1-2 lines of extra value,
 then one CTA line. And 3-5 specific, relevant hashtags (not generic ones like #fyp).
+In each scene, wrap the ONE word you would stress when speaking in *asterisks*.
+For each scene also write a stock-footage search query: 2-5 concrete, filmable words (objects, actions, places), e.g.
+"cold shower water close up", never abstract ideas like "productivity".
+Also write a 2-5 word series title in capitals for the top of the screen (e.g. "COLD SHOWER RULES").
 For each scene also pick ONE illustration for the on-screen prop, from exactly this list, or "" when none fits: {props}.
-Return ONLY JSON: {{"scenes": ["..."], "props": ["clock", "", "..."], "caption": "...", "hashtags": ["word", "..."]}}"""
+Return ONLY JSON: {{"scenes": ["..."], "broll": ["query", "..."], "title": "...", "props": ["clock", "", "..."],
+"caption": "...", "hashtags": ["word", "..."]}}"""
 
 
 def _extract_json(text: str) -> dict:
@@ -80,7 +104,8 @@ def _extract_json(text: str) -> dict:
     if len(scenes) < 3:
         raise ValueError("LLM returned fewer than 3 scenes")
     props = [str(x).strip().lower() for x in data.get("props", [])]
-    return {"scenes": scenes, "props": props, "caption": str(data.get("caption", "")).strip(),
+    broll = [str(x).strip() for x in data.get("broll", [])]
+    return {"scenes": scenes, "props": props, "broll": broll, "title": str(data.get("title", "")).strip(), "caption": str(data.get("caption", "")).strip(),
             "hashtags": [str(h).lstrip("#").strip() for h in data.get("hashtags", []) if str(h).strip()][:5]}
 
 
@@ -126,7 +151,8 @@ def offline_script(topic: str, points: list[str], cta: str | None) -> dict:
     scenes.append(cta or f"Save this, and follow for more on {topic}.")
     tags = [re.sub(r"\W", "", w.title()) for w in topic.split()[:3] if len(w) > 2]
     props = [str(x).strip().lower() for x in data.get("props", [])]
-    return {"scenes": scenes, "props": props, "caption": f"{scenes[0]}\n\n{scenes[-1]}", "hashtags": [t for t in tags if t][:5]}
+    broll = [str(x).strip() for x in data.get("broll", [])]
+    return {"scenes": scenes, "props": props, "broll": broll, "title": str(data.get("title", "")).strip(), "caption": f"{scenes[0]}\n\n{scenes[-1]}", "hashtags": [t for t in tags if t][:5]}
 
 
 def generate(topic: str, points: list[str], n_scenes=7, seconds=30, lang="English", tone="direct, warm, confident",
