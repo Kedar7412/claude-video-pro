@@ -4,6 +4,7 @@
     python run.py examples/en.txt --handle @you          (Windows: py run.py ...)
     python run.py --setup
     python run.py long project.md --meta project.json        (long-form videos, minutes to hours)
+    python run.py mix plan.json                              (segments from several engines, stitched)
 Works the same on Windows, macOS and Linux.
 """
 import os, subprocess, sys
@@ -30,6 +31,8 @@ def main():
     target = "reel.py"
     if args and args[0] in ("long", "video"):       # python run.py long project.md ...
         target, args = "long.py", args[1:]
+    elif args and args[0] == "mix":                  # python run.py mix plan.json ...
+        target, args = "mix.py", args[1:]
     sys.exit(subprocess.call([str(PY), str(ROOT / target), *args], env=env, cwd=ROOT))
 
 

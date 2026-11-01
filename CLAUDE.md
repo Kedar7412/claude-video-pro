@@ -1,5 +1,8 @@
 # Reel pipeline rules
 
+Any video: first pick the engine (or a mix of engines, per segment) with `.claude/skills/make-mix/SKILL.md` (`/make-mix`):
+this repo's pipeline, animate (hand-drawn styles), Remotion (`remotion/`, data and UI motion) or HyperFrames
+(`hyperframes/`, HTML motion design). Mixed videos are stitched with `python run.py mix plan.json`.
 Reels / TikToks / Shorts (under ~90 s): follow `.claude/skills/make-reel/SKILL.md` (`/reel <topic>`).
 Long videos (5 min to 2 hours): follow `.claude/skills/make-video/SKILL.md` (`/video <topic>`).
 Always go through intent → research → brief before writing a script; the brief is what makes each reel fit its topic.
@@ -9,7 +12,7 @@ Always go through intent → research → brief before writing a script; the bri
 `voice.py` (TTS, alignment) · `music.py` (synth, track loading, beat detection, voice polish, mix) ·
 `footage.py` (Pexels/local clips, frame streaming, camera) · `kinetic.py` (footage style renderer) ·
 `looks.py` (look presets) · `longform.py` / `longscript.py` / `images.py` (long videos: ffmpeg-composed shots, ASS captions, YouTube package) · `musicsearch.py` (CC0/CC BY music from Wikimedia Commons) ·
-`render.py` + `figures.py` (cards style, host, props) · `checks.py` (gates)
+`render.py` + `figures.py` (cards style, host, props) · `checks.py` (gates) · `mix.py` (renders segments in any engine, stitches them)
 
 ## Render contract
 - `frame(t)` is a function of time; footage is streamed sequentially and re-opened with a seek for random access.

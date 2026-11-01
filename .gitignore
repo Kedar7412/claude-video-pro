@@ -7,3 +7,11 @@ __pycache__/
 .reel_history.json
 .env
 projects/
+
+# HyperFrames and animate render output
+hyperframes/renders/
+hyperframes/node_modules/
+pieces/*/frames/
+pieces/*/renders/
+pieces/*/review/
+pieces/*/index.html

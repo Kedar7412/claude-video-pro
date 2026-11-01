@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "historyId": "4ff8e533-5630-4dbb-9ff5-8089059e85b3",
+  "currentRevision": null,
+  "pendingChanges": false,
+  "files": {
+    "AGENTS.md": {
+      "hash": "1b36171117cb7c18f4100a0db6a3782ff2e096115995733200445cc2e80a4060",
+      "content": "C:\\Users\\kedar pathak\\.cache\\hyperframes\\history\\4ff8e533-5630-4dbb-9ff5-8089059e85b3\\blobs\\1b\\1b36171117cb7c18f4100a0db6a3782ff2e096115995733200445cc2e80a4060"
+    },
+    "CLAUDE.md": {
+      "hash": "1b36171117cb7c18f4100a0db6a3782ff2e096115995733200445cc2e80a4060",
+      "content": "C:\\Users\\kedar pathak\\.cache\\hyperframes\\history\\4ff8e533-5630-4dbb-9ff5-8089059e85b3\\blobs\\1b\\1b36171117cb7c18f4100a0db6a3782ff2e096115995733200445cc2e80a4060"
+    },
+    "hyperframes.json": {
+      "hash": "53dbce1e19aa713cbb12ee0bc4d206143b45ab15e6ffbfcaa8f69572d4d24d50",
+      "content": "C:\\Users\\kedar pathak\\.cache\\hyperframes\\history\\4ff8e533-5630-4dbb-9ff5-8089059e85b3\\blobs\\53\\53dbce1e19aa713cbb12ee0bc4d206143b45ab15e6ffbfcaa8f69572d4d24d50"
+    },
+    "index.html": {
+      "hash": "bc7ff2e743d8c95e30ff5c0cc87ad41e44151942473924011cdad94a9a5e35fe",
+      "content": "C:\\Users\\kedar pathak\\.cache\\hyperframes\\history\\4ff8e533-5630-4dbb-9ff5-8089059e85b3\\blobs\\bc\\bc7ff2e743d8c95e30ff5c0cc87ad41e44151942473924011cdad94a9a5e35fe"
+    },
+    "meta.json": {
+      "hash": "04472c52b27c0470180ec6200c80fdfda8b2f78b059577202f6dec6b8da5fb17",
+      "content": "C:\\Users\\kedar pathak\\.cache\\hyperframes\\history\\4ff8e533-5630-4dbb-9ff5-8089059e85b3\\blobs\\04\\04472c52b27c0470180ec6200c80fdfda8b2f78b059577202f6dec6b8da5fb17"
+    },
+    "package-lock.json": {
+      "hash": "64636f57de18f04c3c94e126fca76bab41638f56988894cf70ddfc6c1b736d94",
+      "content": "C:\\Users\\kedar pathak\\.cache\\hyperframes\\history\\4ff8e533-5630-4dbb-9ff5-8089059e85b3\\blobs\\64\\64636f57de18f04c3c94e126fca76bab41638f56988894cf70ddfc6c1b736d94"
+    },
+    "package.json": {
+      "hash": "858e2bfad7ab325f2a9df7a55b29826a5504d106670f7df67eb16ecce7dddc0b",
+      "content": "C:\\Users\\kedar pathak\\.cache\\hyperframes\\history\\4ff8e533-5630-4dbb-9ff5-8089059e85b3\\blobs\\85\\858e2bfad7ab325f2a9df7a55b29826a5504d106670f7df67eb16ecce7dddc0b"
+    }
+  },
+  "revisions": {},
+  "checks": {
+    "latest": null,
+    "revisions": {},
+    "unversioned": []
+  },
+  "snapshots": {
+    "latest": null,
+    "revisions": {},
+    "unversioned": []
+  },
+  "renders": {
+    "latest": {
+      "id": "79d204f2-7f46-42a4-81f2-e24125bb3589",
+      "completedAt": 1793504737071,
+      "output": "C:\\Users\\kedar pathak\\claude-video-pro\\out\\mix-test\\segments\\01-hyperframes.raw.mp4",
+      "status": "completed",
+      "revision": null
+    },
+    "retainedRevisions": []
+  },
+  "pendingArtifactCleanup": []
+}
